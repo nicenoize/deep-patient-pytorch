@@ -9,6 +9,7 @@ from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
+import time
 
 class PatientVectorDataset(Dataset):
     """Patient vector dataset."""
@@ -76,9 +77,10 @@ class CDAutoEncoder(nn.Module):
 
         if self.training:
             x_reconstruct = self.backward_pass(y)
-            #loss = self.criterion(x_reconstruct, Variable(x.data, requires_grad=False))
-            loss = nn.CrossEntropyLoss()
+            loss = self.criterion(x_reconstruct, Variable(x.data, requires_grad=False))
+            #loss = nn.CrossEntropyLoss()
             self.optimizer.zero_grad()
+            #output = loss(x_reconstruct, x)
             loss.backward()
             self.optimizer.step()
             
@@ -129,10 +131,56 @@ class StackedAutoEncoder(nn.Module):
 
 model = StackedAutoEncoder() #.cuda()
 
-for i, batch in enumerate(dataloader):
+num_epochs = 100
+batch_size = 4
+
+for epoch in range(num_epochs):
+    if epoch % 10 == 0:
+        # Test the quality of our features with a randomly initialzed linear classifier.
+        classifier = nn.Linear(4, 4) #.cuda()
+        criterion = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
+
+    model.train()
+    total_time = time.time()
+    correct = 0
+
+    for i, batch in enumerate(dataloader):
+        print(dataloader.dataset)
+        print(batch)
+        #print(batch.reshape(4, 80))
+        #just to test
+        #prediction = batch[0].flatten()
+        #batch = torch.arange(4.)
+        #print(batch.shape)
+        target = batch.flatten()
+        #print(target.shape)
+        #patient, target, features = batch
         batch = Variable(batch)#.cuda()
         #print(patient)
-        print(batch)
+        #print(batch)
         features = model(torch.FloatTensor(np.arange(320).reshape(4, 80))).detach()
         prediction = classifier(features.view(features.size(0), -1))
-        loss = criterion(prediction, patient)
+        loss = criterion(prediction, target.type(torch.LongTensor))
+
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        pred = prediction.data.max(1, keepdim=True)[1]
+        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+
+    model.eval()
+    #batch, _ = data
+    batch = Variable(patient) #.cuda()
+    features, x_reconstructed = model(batch)
+    reconstruction_loss = torch.mean((x_reconstructed.data - batch.data)**2)
+
+
+    print("Epoch {} complete\tTime: {:.4f}s\t\tLoss: {:.4f}".format(epoch, total_time, reconstruction_loss))
+    print("Feature Statistics\tMean: {:.4f}\t\tMax: {:.4f}\t\tSparsity: {:.4f}%".format(
+        torch.mean(features.data), torch.max(features.data), torch.sum(features.data == 0.0)*100 / features.data.numel())
+    )
+    print("Linear classifier performance: {}/{} = {:.2f}%".format(correct, len(dataloader)*batch_size, 100*float(correct) / (len(dataloader)*batch_size)))
+    print("="*80)
+
+torch.save(model.state_dict(), './CDAE.pth')
