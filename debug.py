@@ -35,7 +35,6 @@ class PatientVectorDataset(Dataset):
         return patient
 
 patientvecs_dataset = PatientVectorDataset(csv_file='/Users/nicenoize/Documents/DATEXIS/DeepPatient/test_multi_hot.csv')
-print(patientvecs_dataset)
 dataloader = DataLoader(patientvecs_dataset, batch_size=4, shuffle=True, num_workers=4)
 dataset = pd.read_csv('/Users/nicenoize/Documents/DATEXIS/DeepPatient/test_multi_hot.csv')
 # X = Features
@@ -72,9 +71,9 @@ class CDAutoEncoder(nn.Module):
     def forward(self, x):
         # Train each autoencoder individually
         x = x.detach()
-        print(x.shape)
+        #print(x.shape)
         # Add noise, but use the original lossless input as the target.
-        x_noisy = x #* (Variable(x.data.new(x.size()).normal_(0, 0.1)) > -.1).type_as(x)
+        x_noisy = x * (Variable(x.data.new(x.size()).normal_(0, 0.1)) > -.1).type_as(x)
         y = self.forward_pass(x_noisy)
 
         if self.training:
@@ -106,9 +105,9 @@ class StackedAutoEncoder(nn.Module):
         #self.ae3 = CDAutoEncoder(500, 500, 500)
 
         #input_size, output_size, kernel_size=2, stride=stride, padding=0)
-        self.ae1 = CDAutoEncoder(80, 4, 80)
-        self.ae2 = CDAutoEncoder(80, 4, 80)
-        self.ae3 = CDAutoEncoder(80, 4, 80)
+        self.ae1 = CDAutoEncoder(80, 80, 80)
+        self.ae2 = CDAutoEncoder(80, 80, 80)
+        self.ae3 = CDAutoEncoder(80, 80, 80)
 
         
     def forward(self, x):
@@ -137,6 +136,9 @@ num_epochs = 100
 batch_size = 4
 
 for epoch in range(num_epochs):
+    print("Epoch:")
+    print(epoch)
+    print("\n")
     if epoch % 10 == 0:
         # Test the quality of our features with a randomly initialzed linear classifier.
         classifier = nn.Linear(80, 4) #.cuda()
@@ -164,19 +166,19 @@ for epoch in range(num_epochs):
         #batch = Variable(batch)#.cuda()
         #print(patient)
         #print(batch)
-        features = model(torch.FloatTensor(np.random.rand(80)))#.detach()
+        features = model(torch.FloatTensor(np.random.rand(80,80)))#.detach()
         prediction = classifier(features.view(features.size(0), -1))
-        loss = criterion(prediction, target.type(torch.LongTensor))
+        loss = criterion(prediction, torch.tensor(target).type(torch.LongTensor))
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         pred = prediction.data.max(1, keepdim=True)[1]
-        correct += pred.eq(target.data.view_as(pred)).cpu().sum()
+        #correct += pred.eq(target.data.view_as(pred)).cpu().sum()
 
     model.eval()
     #batch, _ = data
-    batch = Variable(patient) #.cuda()
+    batch = Variable(torch.tensor(patient).type(torch.LongTensor)) #.cuda()
     features, x_reconstructed = model(batch)
     reconstruction_loss = torch.mean((x_reconstructed.data - batch.data)**2)
 
