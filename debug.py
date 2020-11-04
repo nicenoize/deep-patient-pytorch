@@ -35,6 +35,7 @@ class PatientVectorDataset(Dataset):
         return patient
 
 patientvecs_dataset = PatientVectorDataset(csv_file='/Users/nicenoize/Documents/DATEXIS/DeepPatient/test_multi_hot.csv')
+print(patientvecs_dataset)
 dataloader = DataLoader(patientvecs_dataset, batch_size=4, shuffle=True, num_workers=4)
 dataset = pd.read_csv('/Users/nicenoize/Documents/DATEXIS/DeepPatient/test_multi_hot.csv')
 # X = Features
@@ -71,6 +72,7 @@ class CDAutoEncoder(nn.Module):
     def forward(self, x):
         # Train each autoencoder individually
         x = x.detach()
+        print(x.shape)
         # Add noise, but use the original lossless input as the target.
         x_noisy = x #* (Variable(x.data.new(x.size()).normal_(0, 0.1)) > -.1).type_as(x)
         y = self.forward_pass(x_noisy)
@@ -111,16 +113,16 @@ class StackedAutoEncoder(nn.Module):
         
     def forward(self, x):
         a1 = self.ae1(x)
-        #a2 = self.ae2(a1)
-        #a3 = self.ae3(a2)
+        a2 = self.ae2(a1)
+        a3 = self.ae3(a2)
 
         if self.training:
-            #return a3
-            return a1
+            return a3
+            #return a1
 
         else:
-            #return a3, self.reconstruct(a3)
-            return a1, self.reconstruct(a1)
+            return a3, self.reconstruct(a3)
+            #return a1, self.reconstruct(a1)
 
 
     def reconstruct(self, x):
@@ -137,7 +139,7 @@ batch_size = 4
 for epoch in range(num_epochs):
     if epoch % 10 == 0:
         # Test the quality of our features with a randomly initialzed linear classifier.
-        classifier = nn.Linear(4, 4) #.cuda()
+        classifier = nn.Linear(80, 4) #.cuda()
         criterion = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(classifier.parameters(), lr=0.001)
 
@@ -146,20 +148,23 @@ for epoch in range(num_epochs):
     correct = 0
 
     for i, batch in enumerate(dataloader):
-        print(dataloader.dataset)
-        print(batch)
+        #print(dataloader.dataset)
+        #print(batch.shape)
+        #patient, target = batch
+        patient = np.random.rand(80)
+        target = np.random.rand(80)
         #print(batch.reshape(4, 80))
         #just to test
         #prediction = batch[0].flatten()
         #batch = torch.arange(4.)
         #print(batch.shape)
-        target = batch.flatten()
+        #target = batch.flatten()
         #print(target.shape)
         #patient, target, features = batch
-        batch = Variable(batch)#.cuda()
+        #batch = Variable(batch)#.cuda()
         #print(patient)
         #print(batch)
-        features = model(torch.FloatTensor(np.arange(320).reshape(4, 80))).detach()
+        features = model(torch.FloatTensor(np.random.rand(80)))#.detach()
         prediction = classifier(features.view(features.size(0), -1))
         loss = criterion(prediction, target.type(torch.LongTensor))
 
