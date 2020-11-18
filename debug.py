@@ -34,9 +34,10 @@ class PatientVectorDataset(Dataset):
 
         return patient
 
-patientvecs_dataset = PatientVectorDataset(csv_file='/Users/nicenoize/Documents/DATEXIS/DeepPatient/test_multi_hot.csv')
+patientvecs_dataset = PatientVectorDataset(csv_file='/Users/nicenoize/Documents/DATEXIS/DeepPatient/multi_hot_encoded.csv')
+#print(patientvecs_dataset[0,:])
 dataloader = DataLoader(patientvecs_dataset, batch_size=4, shuffle=True, num_workers=4)
-dataset = pd.read_csv('/Users/nicenoize/Documents/DATEXIS/DeepPatient/test_multi_hot.csv')
+dataset = pd.read_csv('/Users/nicenoize/Documents/DATEXIS/DeepPatient/multi_hot_encoded.csv')
 # X = Features
 # y = diagnoses
 X = dataset.drop(dataset.columns[0], axis=1)
@@ -179,13 +180,13 @@ for epoch in range(num_epochs):
     model.eval()
     #batch, _ = data
     batch = Variable(torch.tensor(patient).type(torch.LongTensor)) #.cuda()
-    features, x_reconstructed = model(batch)
+    features, x_reconstructed = model(torch.tensor(batch).type(torch.FloatTensor))
     reconstruction_loss = torch.mean((x_reconstructed.data - batch.data)**2)
 
 
     print("Epoch {} complete\tTime: {:.4f}s\t\tLoss: {:.4f}".format(epoch, total_time, reconstruction_loss))
     print("Feature Statistics\tMean: {:.4f}\t\tMax: {:.4f}\t\tSparsity: {:.4f}%".format(
-        torch.mean(features.data), torch.max(features.data), torch.sum(features.data == 0.0)*100 / features.data.numel())
+        torch.mean(features.data), torch.max(features.data), np.true_divide(torch.sum(features.data == 0.0)*100,features.data.numel()))
     )
     print("Linear classifier performance: {}/{} = {:.2f}%".format(correct, len(dataloader)*batch_size, 100*float(correct) / (len(dataloader)*batch_size)))
     print("="*80)
